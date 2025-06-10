@@ -188,8 +188,8 @@ export class SimulationEngine {
     // Resistance factor: resistant bacteria have higher survival
     const resistanceFactor = bacterium.isResistant ? 0.9 : 0.1;
 
-    // Kill constant (affects how deadly the antibiotic is)
-    const killConstant = 3.0;
+    // Kill constant (affects how deadly the antibiotic is) - reduced to be less lethal
+    const killConstant = 1.5;
 
     // Survival probability calculation
     const effectiveConcentration = concentration * (1 - resistanceFactor);
@@ -234,19 +234,19 @@ export class SimulationEngine {
     currentPopulation: number,
     carryingCapacity: number
   ): boolean {
+    // Age-based reproduction (bacteria reproduce when young) - consistent with frontend
+    const age = bacterium.age || 0;
+    if (age < 1 || age > 15) return false; // Slightly wider age range for better reproduction
+
     // Population pressure reduces reproduction probability
     const populationPressure = currentPopulation / carryingCapacity;
     const baseProbability = params.growthRate * (1 - populationPressure);
 
-    // Fitness affects reproduction probability
-    const fitness = bacterium.fitness || 0.5;
+    // Fitness affects reproduction probability - consistent with frontend default
+    const fitness = bacterium.fitness || 1.0;
     const reproductionProbability = baseProbability * fitness;
 
-    // Age affects reproduction (very young and very old bacteria reproduce less)
-    const age = bacterium.age || 0;
-    const ageMultiplier = age < 5 ? 0.5 : age > 30 ? 0.8 : 1.0;
-
-    return Math.random() < reproductionProbability * ageMultiplier;
+    return Math.random() < reproductionProbability;
   }
 
   /**
@@ -266,8 +266,8 @@ export class SimulationEngine {
     // Inherit traits with some variation
     const fitnessVariation = (Math.random() - 0.5) * 0.1; // ±5% fitness variation
     const newFitness = Math.max(
-      0,
-      Math.min(1, (parent.fitness || 0.5) + fitnessVariation)
+      0.1,
+      Math.min(2.0, (parent.fitness || 1.0) + fitnessVariation)
     );
 
     const sizeVariation = (Math.random() - 0.5) * 0.5; // ±0.25 size variation
@@ -324,13 +324,13 @@ export class SimulationEngine {
       // Resistance usually comes with fitness cost
       if (mutatedBacterium.isResistant) {
         mutatedBacterium.fitness = Math.max(
-          0,
-          (mutatedBacterium.fitness || 0.5) - 0.1
+          0.1,
+          (mutatedBacterium.fitness || 1.0) - 0.1
         );
       } else {
         mutatedBacterium.fitness = Math.min(
-          1,
-          (mutatedBacterium.fitness || 0.5) + 0.1
+          2.0,
+          (mutatedBacterium.fitness || 1.0) + 0.1
         );
       }
 
@@ -342,8 +342,8 @@ export class SimulationEngine {
       // 70% of mutations affect fitness
       const fitnessChange = (Math.random() - 0.5) * 0.2; // ±10% change
       mutatedBacterium.fitness = Math.max(
-        0,
-        Math.min(1, (mutatedBacterium.fitness || 0.5) + fitnessChange)
+        0.1,
+        Math.min(2.0, (mutatedBacterium.fitness || 1.0) + fitnessChange)
       );
       hasMutated = true;
     }
@@ -424,11 +424,11 @@ export class SimulationEngine {
    * @returns Initial fitness value
    */
   private static generateInitialFitness(isResistant: boolean): number {
-    // Resistant bacteria start with slightly lower fitness (cost of resistance)
-    const baseFitness = isResistant ? 0.4 : 0.6;
+    // Resistant bacteria start with slightly lower fitness (cost of resistance) - consistent with frontend
+    const baseFitness = isResistant ? 0.8 : 1.0;
     const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
 
-    return Math.max(0.1, Math.min(1, baseFitness + variation));
+    return Math.max(0.1, Math.min(2.0, baseFitness + variation));
   }
 
   /**
@@ -441,7 +441,7 @@ export class SimulationEngine {
   ): number {
     // Carrying capacity is proportional to petri dish area
     const area = Math.PI * Math.pow(params.petriDishSize / 2, 2);
-    const densityFactor = 0.001; // Bacteria per unit area
+    const densityFactor = 0.003; // Increased density factor for more bacteria growth
 
     return Math.floor(area * densityFactor);
   }

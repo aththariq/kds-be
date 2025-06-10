@@ -25,6 +25,9 @@ router.get("/:id", SimulationController.getSimulation);
 // PUT /api/simulations/:id/step - Advance simulation one generation
 router.put("/:id/step", SimulationController.stepSimulation);
 
+// PUT /api/simulations/:id/run-full - Run complete simulation to final generation
+router.put("/:id/run-full", SimulationController.runFullSimulation);
+
 // PUT /api/simulations/:id/start - Start/resume simulation
 router.put("/:id/start", SimulationController.startSimulation);
 
