@@ -18,14 +18,17 @@
   "license": "ISC",
   "description": "Backend API for bacteria simulation",
   "dependencies": {
+    "axios": "^1.9.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
-    "mongoose": "^8.9.2"
+    "mongoose": "^8.15.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.18",
+    "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.0",
+    "@types/mongoose": "^5.11.96",
     "@types/node": "^22.10.6",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",

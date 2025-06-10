@@ -1,158 +1,69 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+// Frontend-compatible bacterium interface
 export interface IBacterium extends Document {
-  id: string;
-  x: number;
-  y: number;
-  isResistant: boolean;
+  simulationId: mongoose.Types.ObjectId;
+  bacteriumId: string; // Frontend id field
+  position: { x: number; y: number };
+  isResistant: boolean; // Frontend uses isResistant instead of resistance
   fitness: number;
   age: number;
   generation: number;
-  parentId?: string;
-  color: string;
-  size: number;
+  parentId?: string; // Frontend uses string, not ObjectId
+  color: string; // Frontend color field
+  size: number; // Frontend size field
   createdAt: Date;
   updatedAt: Date;
-  // Virtual properties
-  survivalRate: number;
-  isElderly: boolean;
-  // Instance methods
-  mutate(mutationRate: number): boolean;
-  reproduce(newPosition: { x: number; y: number }): Partial<IBacterium>;
 }
 
 const BacteriumSchema: Schema = new mongoose.Schema(
   {
-    id: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
+    simulationId: { type: Schema.Types.ObjectId, ref: 'Simulation', required: true, index: true },
+    bacteriumId: { type: String, required: true, index: true }, // Frontend id
+    position: {
+      x: { type: Number, required: true },
+      y: { type: Number, required: true }
     },
-    x: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 1000, // Default petri dish size constraint
-    },
-    y: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 1000, // Default petri dish size constraint
-    },
-    isResistant: {
-      type: Boolean,
-      default: false,
-      index: true, // For efficient filtering
-    },
-    fitness: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 1,
-    },
-    age: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    generation: {
-      type: Number,
-      default: 0,
-      min: 0,
-      index: true, // For efficient filtering by generation
-    },
-    parentId: {
-      type: String,
-      index: true, // For efficient parent-child queries
-    },
-    color: {
-      type: String,
-      required: true,
-      enum: [
-        "#ff4444",
-        "#44ff44",
-        "#4444ff",
-        "#ffff44",
-        "#ff44ff",
-        "#44ffff",
-        "#ffffff",
-      ],
-    },
-    size: {
-      type: Number,
-      required: true,
-      min: 1,
-      max: 10,
-    },
+    isResistant: { type: Boolean, required: true, default: false }, // Match frontend
+    fitness: { type: Number, required: true, min: 0 },
+    age: { type: Number, required: true, min: 0, default: 0 },
+    generation: { type: Number, required: true, min: 0, default: 0 },
+    parentId: { type: String, default: null }, // Match frontend string type
+    color: { type: String, required: true }, // Frontend color field
+    size: { type: Number, required: true, min: 1, default: 3 } // Frontend size field
   },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-  }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
-// Virtual property for survival rate based on fitness
+// Virtual property for survival rate based on fitness (backward compatibility)
 BacteriumSchema.virtual("survivalRate").get(function (this: IBacterium) {
   return this.fitness * 100;
 });
 
-// Virtual property to check if bacterium is elderly (for natural death simulation)
-BacteriumSchema.virtual("isElderly").get(function (this: IBacterium) {
-  return this.age > 50; // Arbitrary threshold for bacterial aging
+// Virtual property for resistance value (0-1) for backward compatibility
+BacteriumSchema.virtual("resistance").get(function (this: IBacterium) {
+  return this.isResistant ? 0.9 : 0.1; // Convert boolean to resistance value
 });
 
-// Instance methods
-BacteriumSchema.methods.mutate = function (mutationRate: number): boolean {
-  if (Math.random() < mutationRate) {
-    this.isResistant = !this.isResistant;
-    this.fitness = Math.max(
-      0,
-      Math.min(1, this.fitness + (Math.random() - 0.5) * 0.2)
-    );
-    return true;
-  }
-  return false;
-};
-
-BacteriumSchema.methods.reproduce = function (newPosition: {
-  x: number;
-  y: number;
-}): Partial<IBacterium> {
-  return {
-    id: `${this.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    x: newPosition.x,
-    y: newPosition.y,
-    isResistant: this.isResistant,
-    fitness: this.fitness,
-    age: 0,
-    generation: this.generation + 1,
-    parentId: this.id,
-    color: this.color,
-    size: Math.max(1, this.size + (Math.random() - 0.5)),
-  };
-};
-
-// Static methods
-BacteriumSchema.statics.getResistantCount = function (bacteria: IBacterium[]) {
-  return bacteria.filter((b) => b.isResistant).length;
-};
-
-BacteriumSchema.statics.getSensitiveCount = function (bacteria: IBacterium[]) {
-  return bacteria.filter((b) => !b.isResistant).length;
-};
-
+// Static method for calculating average fitness
 BacteriumSchema.statics.getAverageFitness = function (bacteria: IBacterium[]) {
   if (bacteria.length === 0) return 0;
   const totalFitness = bacteria.reduce((sum, b) => sum + b.fitness, 0);
   return totalFitness / bacteria.length;
 };
 
+// Static method for getting resistance ratio
+BacteriumSchema.statics.getResistanceRatio = function (bacteria: IBacterium[]) {
+  if (bacteria.length === 0) return 0;
+  const resistantCount = bacteria.filter(b => b.isResistant).length;
+  return resistantCount / bacteria.length;
+};
+
 // Indexes for performance optimization
-BacteriumSchema.index({ generation: 1, isResistant: 1 });
-BacteriumSchema.index({ x: 1, y: 1 }); // For spatial queries
-BacteriumSchema.index({ parentId: 1, generation: 1 }); // For lineage tracking
+BacteriumSchema.index({ simulationId: 1, 'position.x': 1, 'position.y': 1 });
+BacteriumSchema.index({ simulationId: 1, generation: 1 });
+BacteriumSchema.index({ simulationId: 1, isResistant: 1 });
+BacteriumSchema.index({ parentId: 1 });
+BacteriumSchema.index({ bacteriumId: 1 }, { unique: false }); // Allow duplicates across simulations
 
 export default mongoose.model<IBacterium>("Bacterium", BacteriumSchema);

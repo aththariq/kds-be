@@ -1,15 +1,30 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { IBacterium } from "./Bacterium";
 
+// Frontend-compatible parameter interface matching Zod schema
 export interface ISimulationParameters {
-  initialPopulation: number;
-  growthRate: number;
-  antibioticConcentration: number;
-  mutationRate: number;
-  duration: number;
-  petriDishSize: number;
+  initialPopulation: number; // 1-1000, int
+  growthRate: number; // 0.001-1.0, decimal
+  antibioticConcentration: number; // 0-1.0, decimal
+  mutationRate: number; // 0-0.1, decimal
+  duration: number; // 1-1000 generations, int
+  petriDishSize: number; // 100-800 pixels, int
 }
 
+// Frontend-compatible Bacterium interface
+export interface IBacterium {
+  id: string;
+  x: number;
+  y: number;
+  isResistant: boolean;
+  fitness: number;
+  age: number;
+  generation: number;
+  parentId?: string;
+  color: string;
+  size: number;
+}
+
+// Frontend-compatible SimulationState  
 export interface ISimulationState {
   generation: number;
   timeElapsed: number;
@@ -17,8 +32,10 @@ export interface ISimulationState {
   isRunning: boolean;
   isPaused: boolean;
   stepCount: number;
+  simulationSpeed: number; // 1-10, default: 1
 }
 
+// Frontend-compatible SimulationStatistics (time series arrays)
 export interface ISimulationStatistics {
   totalPopulation: number[];
   resistantCount: number[];
@@ -31,333 +48,186 @@ export interface ISimulationStatistics {
   reproductions: number[];
 }
 
+// Additional metadata interface for enhanced functionality
+export interface ISimulationMetadata {
+  performanceMetrics: {
+    averageStepTime: number;
+    peakMemoryUsage: number;
+  };
+  complexityMetrics: {
+    maxPopulation: number;
+    generationalDiversity: number;
+  };
+  tags: string[];
+  category: string;
+  description: string;
+  favorite: boolean;
+}
+
 export interface ISimulation extends Document {
   name: string;
   description?: string;
   parameters: ISimulationParameters;
   currentState: ISimulationState;
   statistics: ISimulationStatistics;
+  metadata: ISimulationMetadata;
+  lastRunAt?: Date;
+  userId?: string;
+  completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
-  completedAt?: Date;
-  userId?: string; // For future user management
-  // Virtual properties
-  isCompleted: boolean;
-  progressPercentage: number;
-  currentPopulation: number;
-  currentResistantCount: number;
-  currentSensitiveCount: number;
-  // Instance methods
-  addStatisticsPoint(): void;
-  reset(): void;
-  start(): void;
-  pause(): void;
-  resume(): void;
-  stop(): void;
 }
 
-const SimulationParametersSchema = new Schema(
-  {
-    initialPopulation: {
-      type: Number,
+const SimulationSchema: Schema = new Schema({
+  name: { 
+    type: String, 
+    required: true,
+    trim: true,
+    maxlength: 100
+  },
+  description: { 
+    type: String, 
+    default: "",
+    maxlength: 500
+  },
+  parameters: {
+    initialPopulation: { 
+      type: Number, 
       required: true,
       min: 1,
-      max: 10000,
+      max: 1000
     },
-    growthRate: {
-      type: Number,
+    growthRate: { 
+      type: Number, 
+      required: true,
+      min: 0.001,
+      max: 1
+    },
+    antibioticConcentration: { 
+      type: Number, 
       required: true,
       min: 0,
-      max: 1,
+      max: 1
     },
-    antibioticConcentration: {
-      type: Number,
+    mutationRate: { 
+      type: Number, 
       required: true,
       min: 0,
-      max: 1,
+      max: 0.1
     },
-    mutationRate: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 1,
-    },
-    duration: {
-      type: Number,
+    duration: { 
+      type: Number, 
       required: true,
       min: 1,
-      max: 1000,
+      max: 1000
     },
-    petriDishSize: {
-      type: Number,
+    petriDishSize: { 
+      type: Number, 
       required: true,
       min: 100,
-      max: 2000,
-    },
+      max: 800,
+      default: 600
+    }
   },
-  { _id: false }
-);
+  
+  // Updated currentState to match frontend expectations
+  currentState: {
+    generation: { type: Number, default: 0 },
+    timeElapsed: { type: Number, default: 0 }, // in milliseconds
+    bacteria: [{
+      id: { type: String, required: true },
+      x: { type: Number, required: true },
+      y: { type: Number, required: true },
+      isResistant: { type: Boolean, required: true },
+      fitness: { type: Number, required: true },
+      age: { type: Number, required: true },
+      generation: { type: Number, required: true },
+      parentId: { type: String },
+      color: { type: String, required: true },
+      size: { type: Number, required: true }
+    }],
+    isRunning: { type: Boolean, default: false },
+    isPaused: { type: Boolean, default: false },
+    stepCount: { type: Number, default: 0 },
+    simulationSpeed: { 
+      type: Number, 
+      default: 1,
+      min: 1,
+      max: 10,
+      validate: {
+        validator: Number.isInteger,
+        message: 'Simulation speed must be an integer'
+      }
+    }
+  },
+  
+  // Updated statistics to match frontend expectations (time series arrays)
+  statistics: {
+    totalPopulation: [{ type: Number }],
+    resistantCount: [{ type: Number }],
+    sensitiveCount: [{ type: Number }],
+    averageFitness: [{ type: Number }],
+    mutationEvents: [{ type: Number }],
+    generations: [{ type: Number }],
+    antibioticDeaths: [{ type: Number }],
+    naturalDeaths: [{ type: Number }],
+    reproductions: [{ type: Number }]
+  },
+  
+  metadata: {
+    performanceMetrics: {
+      averageStepTime: { type: Number, default: 0 },
+      peakMemoryUsage: { type: Number, default: 0 }
+    },
+    complexityMetrics: {
+      maxPopulation: { type: Number, default: 0 },
+      generationalDiversity: { type: Number, default: 0 }
+    },
+    tags: [{ type: String, trim: true }],
+    category: { type: String, trim: true, default: 'uncategorized' },
+    description: { type: String, trim: true, default: '' },
+    favorite: { type: Boolean, default: false }
+  },
+  lastRunAt: { type: Date, required: false },
+  userId: { type: String, index: true, required: false },
+  completedAt: { type: Date, required: false },
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
 
-const SimulationStateSchema = new Schema(
-  {
-    generation: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    timeElapsed: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-    bacteria: [
-      {
-        id: { type: String, required: true },
-        x: { type: Number, required: true },
-        y: { type: Number, required: true },
-        isResistant: { type: Boolean, default: false },
-        fitness: { type: Number, required: true },
-        age: { type: Number, default: 0 },
-        generation: { type: Number, default: 0 },
-        parentId: { type: String },
-        color: { type: String, required: true },
-        size: { type: Number, required: true },
-      },
-    ],
-    isRunning: {
-      type: Boolean,
-      default: false,
-    },
-    isPaused: {
-      type: Boolean,
-      default: false,
-    },
-    stepCount: {
-      type: Number,
-      default: 0,
-      min: 0,
-    },
-  },
-  { _id: false }
-);
-
-const SimulationStatisticsSchema = new Schema(
-  {
-    totalPopulation: {
-      type: [Number],
-      default: [],
-    },
-    resistantCount: {
-      type: [Number],
-      default: [],
-    },
-    sensitiveCount: {
-      type: [Number],
-      default: [],
-    },
-    averageFitness: {
-      type: [Number],
-      default: [],
-    },
-    mutationEvents: {
-      type: [Number],
-      default: [],
-    },
-    generations: {
-      type: [Number],
-      default: [],
-    },
-    antibioticDeaths: {
-      type: [Number],
-      default: [],
-    },
-    naturalDeaths: {
-      type: [Number],
-      default: [],
-    },
-    reproductions: {
-      type: [Number],
-      default: [],
-    },
-  },
-  { _id: false }
-);
-
-const SimulationSchema: Schema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 100,
-    },
-    description: {
-      type: String,
-      trim: true,
-      maxlength: 500,
-    },
-    parameters: {
-      type: SimulationParametersSchema,
-      required: true,
-    },
-    currentState: {
-      type: SimulationStateSchema,
-      required: true,
-      default: () => ({
-        generation: 0,
-        timeElapsed: 0,
-        bacteria: [],
-        isRunning: false,
-        isPaused: false,
-        stepCount: 0,
-      }),
-    },
-    statistics: {
-      type: SimulationStatisticsSchema,
-      required: true,
-      default: () => ({
-        totalPopulation: [],
-        resistantCount: [],
-        sensitiveCount: [],
-        averageFitness: [],
-        mutationEvents: [],
-        generations: [],
-        antibioticDeaths: [],
-        naturalDeaths: [],
-        reproductions: [],
-      }),
-    },
-    completedAt: {
-      type: Date,
-    },
-    userId: {
-      type: String,
-      index: true, // For future user-based filtering
-    },
-  },
-  {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+// Validation method to ensure frontend compatibility
+SimulationSchema.methods.validateParameters = function() {
+  // Validate integer fields
+  if (!Number.isInteger(this.parameters.initialPopulation)) {
+    throw new Error('Initial population must be an integer');
   }
-);
+  if (!Number.isInteger(this.parameters.duration)) {
+    throw new Error('Duration must be an integer');
+  }
+  if (!Number.isInteger(this.parameters.petriDishSize)) {
+    throw new Error('Petri dish size must be an integer');
+  }
 
-// Virtual properties
-SimulationSchema.virtual("isCompleted").get(function (this: ISimulation) {
-  return this.currentState.timeElapsed >= this.parameters.duration;
-});
-
-SimulationSchema.virtual("progressPercentage").get(function (
-  this: ISimulation
-) {
-  return Math.min(
-    100,
-    (this.currentState.timeElapsed / this.parameters.duration) * 100
-  );
-});
-
-SimulationSchema.virtual("currentPopulation").get(function (this: ISimulation) {
-  return this.currentState.bacteria.length;
-});
-
-SimulationSchema.virtual("currentResistantCount").get(function (
-  this: ISimulation
-) {
-  return this.currentState.bacteria.filter((b) => b.isResistant).length;
-});
-
-SimulationSchema.virtual("currentSensitiveCount").get(function (
-  this: ISimulation
-) {
-  return this.currentState.bacteria.filter((b) => !b.isResistant).length;
-});
-
-// Instance methods
-SimulationSchema.methods.addStatisticsPoint = function () {
-  const bacteria = this.currentState.bacteria;
-
-  this.statistics.totalPopulation.push(bacteria.length);
-  this.statistics.resistantCount.push(
-    bacteria.filter((b: any) => b.isResistant).length
-  );
-  this.statistics.sensitiveCount.push(
-    bacteria.filter((b: any) => !b.isResistant).length
-  );
-
-  const averageFitness =
-    bacteria.length > 0
-      ? bacteria.reduce((sum: number, b: any) => sum + b.fitness, 0) /
-        bacteria.length
-      : 0;
-  this.statistics.averageFitness.push(averageFitness);
-
-  this.statistics.generations.push(this.currentState.generation);
+  // Validate ranges to match frontend Zod schema
+  if (this.parameters.growthRate < 0.001 || this.parameters.growthRate > 1.0) {
+    throw new Error('Growth rate must be between 0.001 and 1.0');
+  }
+  if (this.parameters.mutationRate < 0 || this.parameters.mutationRate > 0.1) {
+    throw new Error('Mutation rate must be between 0 and 0.1');
+  }
+  if (this.parameters.antibioticConcentration < 0 || this.parameters.antibioticConcentration > 1.0) {
+    throw new Error('Antibiotic concentration must be between 0 and 1.0');
+  }
 };
 
-SimulationSchema.methods.reset = function () {
-  this.currentState = {
-    generation: 0,
-    timeElapsed: 0,
-    bacteria: [],
-    isRunning: false,
-    isPaused: false,
-    stepCount: 0,
-  };
-
-  this.statistics = {
-    totalPopulation: [],
-    resistantCount: [],
-    sensitiveCount: [],
-    averageFitness: [],
-    mutationEvents: [],
-    generations: [],
-    antibioticDeaths: [],
-    naturalDeaths: [],
-    reproductions: [],
-  };
-
-  this.completedAt = undefined;
-};
-
-SimulationSchema.methods.start = function () {
-  this.currentState.isRunning = true;
-  this.currentState.isPaused = false;
-};
-
-SimulationSchema.methods.pause = function () {
-  this.currentState.isPaused = true;
-};
-
-SimulationSchema.methods.resume = function () {
-  this.currentState.isPaused = false;
-};
-
-SimulationSchema.methods.stop = function () {
-  this.currentState.isRunning = false;
-  this.currentState.isPaused = false;
-  this.completedAt = new Date();
-};
-
-// Static methods
-SimulationSchema.statics.findByStatus = function (isRunning: boolean) {
-  return this.find({ "currentState.isRunning": isRunning });
-};
-
-SimulationSchema.statics.findCompleted = function () {
-  return this.find({ completedAt: { $exists: true } });
-};
-
-SimulationSchema.statics.findInProgress = function () {
-  return this.find({
-    "currentState.isRunning": true,
-    completedAt: { $exists: false },
-  });
-};
-
-// Indexes for performance optimization
+// Add indexes for efficient querying
 SimulationSchema.index({ createdAt: -1 });
-SimulationSchema.index({ "currentState.isRunning": 1 });
+SimulationSchema.index({ 'currentState.generation': 1 });
+SimulationSchema.index({ 'metadata.tags': 1 });
+SimulationSchema.index({ 'metadata.category': 1 });
+SimulationSchema.index({ 'metadata.favorite': 1 });
 SimulationSchema.index({ userId: 1, createdAt: -1 });
-SimulationSchema.index({ name: "text", description: "text" }); // Text search
 
 export default mongoose.model<ISimulation>("Simulation", SimulationSchema);

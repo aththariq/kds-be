@@ -31,6 +31,12 @@ router.put("/:id/start", SimulationController.startSimulation);
 // PUT /api/simulations/:id/pause - Pause simulation
 router.put("/:id/pause", SimulationController.pauseSimulation);
 
+// PUT /api/simulations/:id/reset - Reset simulation to initial state  
+router.put("/:id/reset", SimulationController.resetSimulation);
+
+// PUT /api/simulations/:id/speed - Update simulation speed
+router.put("/:id/speed", SimulationController.updateSimulationSpeed);
+
 // GET /api/simulations/:id/export - Export simulation data
 router.get("/:id/export", SimulationController.exportSimulation);
 
