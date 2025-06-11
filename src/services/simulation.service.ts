@@ -1,5 +1,6 @@
 import { IBacterium, ISimulationParameters } from "../models";
 import { ISimulationStatistics } from "../models/Simulation";
+import { v4 as uuidv4 }  from "uuid";
 
 // Plain object interface for simulation data (without Mongoose Document methods)
 export interface SimulationBacterium {
@@ -69,7 +70,7 @@ export class SimulationEngine {
       bacteria.push({
         id: `bacteria_${i}_${Date.now()}_${Math.random()
           .toString(36)
-          .substr(2, 9)}`,
+          .substr(2, 9)}_` + uuidv4(),
         x: position.x,
         y: position.y,
         isResistant,
@@ -277,9 +278,7 @@ export class SimulationEngine {
     );
 
     return {
-      id: `${parent.id}_offspring_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`,
+      id: uuidv4(),
       x: newPosition.x,
       y: newPosition.y,
       isResistant: parent.isResistant,
@@ -405,7 +404,7 @@ export class SimulationEngine {
    * @param radius - Radius of the petri dish
    * @returns Random position within circle
    */
-  private static generateRandomPositionInCircle(
+  static generateRandomPositionInCircle(
     center: Position,
     radius: number
   ): Position {
@@ -452,7 +451,7 @@ export class SimulationEngine {
    * @param params - Simulation parameters
    * @returns Position for offspring or null if no suitable position
    */
-  private static findOffspringPosition(
+  static findOffspringPosition(
     parent: SimulationBacterium,
     params: ISimulationParameters
   ): Position | null {
